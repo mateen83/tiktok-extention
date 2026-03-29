@@ -1,0 +1,481 @@
+/**
+ * TikTok Video Downloader — Popup Styles
+ * Premium dark UI with TikTok-inspired accent colors.
+ */
+
+/* ─── Reset & Base ──────────────────────────────────────────────────── */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body {
+  width: 380px;
+  min-height: 400px;
+  max-height: 580px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0f0f13;
+  color: #e4e4e7;
+  font-size: 13px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+body::-webkit-scrollbar {
+  width: 4px;
+}
+
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+/* ─── Popup Container ───────────────────────────────────────────────── */
+
+.popup-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* ─── Header ────────────────────────────────────────────────────────── */
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(37, 244, 238, 0.04), transparent);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #25f4ee, #fe2c55);
+  border-radius: 8px;
+  color: #fff;
+}
+
+.header-text h1 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.version {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 500;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* ─── Disclaimer Banner ─────────────────────────────────────────────── */
+
+.disclaimer-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: rgba(250, 204, 21, 0.06);
+  border-bottom: 1px solid rgba(250, 204, 21, 0.1);
+  color: rgba(250, 204, 21, 0.8);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.disclaimer-banner svg {
+  flex-shrink: 0;
+  color: rgba(250, 204, 21, 0.7);
+}
+
+/* ─── Sections ──────────────────────────────────────────────────────── */
+
+.section {
+  padding: 14px 18px;
+}
+
+.section + .section {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-header h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(37, 244, 238, 0.12);
+  color: #25f4ee;
+}
+
+/* ─── Status Grid ───────────────────────────────────────────────────── */
+
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.status-card {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.status-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.status-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+#queue-state {
+  color: #25f4ee;
+}
+
+/* ─── Progress Bar ──────────────────────────────────────────────────── */
+
+.progress-container {
+  margin-bottom: 12px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #25f4ee, #fe2c55);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  width: 0%;
+}
+
+.progress-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ─── Stats Row ─────────────────────────────────────────────────────── */
+
+.stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.stat strong {
+  color: #fff;
+}
+
+.stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.stat-dot-pending { background: #facc15; }
+.stat-dot-active { background: #25f4ee; animation: pulse 1.5s ease-in-out infinite; }
+.stat-dot-done { background: #22c55e; }
+.stat-dot-fail { background: #ef4444; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─── Buttons ───────────────────────────────────────────────────────── */
+
+.controls-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.controls-row:last-child {
+  margin-bottom: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #25f4ee, #1ed4cf);
+  color: #000;
+  box-shadow: 0 2px 8px rgba(37, 244, 238, 0.2);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 4px 16px rgba(37, 244, 238, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.btn-full {
+  width: 100%;
+}
+
+/* ─── Video List ────────────────────────────────────────────────────── */
+
+.video-list {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.video-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.video-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.video-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.15s ease;
+}
+
+.video-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.video-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.video-item-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-item-meta {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.video-item-status {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.status-pending {
+  background: rgba(250, 204, 21, 0.1);
+  color: #facc15;
+}
+
+.status-downloading {
+  background: rgba(37, 244, 238, 0.1);
+  color: #25f4ee;
+}
+
+.status-complete {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.status-failed {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.status-cancelled {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Empty State ───────────────────────────────────────────────────── */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 24px;
+  gap: 12px;
+}
+
+.empty-icon {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.empty-state p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.35);
+  max-width: 280px;
+}
+
+.empty-state strong {
+  color: #25f4ee;
+}
+
+/* ─── Footer ────────────────────────────────────────────────────────── */
+
+.popup-footer {
+  padding: 12px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.2);
+  margin-top: auto;
+}
+
+/* ─── Animations ────────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.section {
+  animation: fadeIn 0.3s ease;
+}
+
+.video-item {
+  animation: fadeIn 0.2s ease;
+}

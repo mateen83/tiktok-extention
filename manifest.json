@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "TikTok Video Downloader",
+  "version": "1.0.0",
+  "description": "Download permitted TikTok videos you have rights to save. Respects platform rules and user privacy.",
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.tiktok.com/*"
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.tiktok.com/*"],
+      "js": ["lib/constants.js", "lib/utils.js", "content/content.js"],
+      "css": ["styles/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

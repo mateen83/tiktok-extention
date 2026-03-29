@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head><title>Icon Generator</title></head>
+<body>
+<canvas id="c16" width="16" height="16"></canvas>
+<canvas id="c48" width="48" height="48"></canvas>
+<canvas id="c128" width="128" height="128"></canvas>
+<script>
+function drawIcon(canvas, size) {
+  const ctx = canvas.getContext('2d');
+  const r = size * 0.15; // corner radius
+  
+  // Background
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, r);
+  ctx.fillStyle = '#161622';
+  ctx.fill();
+  
+  // Gradient for arrow
+  const grad = ctx.createLinearGradient(size*0.3, size*0.2, size*0.7, size*0.8);
+  grad.addColorStop(0, '#25f4ee');
+  grad.addColorStop(1, '#fe2c55');
+  
+  // Down arrow
+  ctx.strokeStyle = grad;
+  ctx.fillStyle = grad;
+  ctx.lineWidth = size * 0.08;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  // Vertical line
+  const cx = size / 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, size * 0.2);
+  ctx.lineTo(cx, size * 0.6);
+  ctx.stroke();
+  
+  // Arrow head
+  ctx.beginPath();
+  ctx.moveTo(size * 0.3, size * 0.5);
+  ctx.lineTo(cx, size * 0.7);
+  ctx.lineTo(size * 0.7, size * 0.5);
+  ctx.stroke();
+  
+  // Bottom bar
+  ctx.beginPath();
+  ctx.moveTo(size * 0.25, size * 0.8);
+  ctx.lineTo(size * 0.75, size * 0.8);
+  ctx.stroke();
+}
+
+[['c16', 16], ['c48', 48], ['c128', 128]].forEach(([id, size]) => {
+  drawIcon(document.getElementById(id), size);
+});
+
+// Download links
+['c16','c48','c128'].forEach(id => {
+  const a = document.createElement('a');
+  a.href = document.getElementById(id).toDataURL('image/png');
+  a.download = `icon${id.replace('c','')}.png`;
+  a.textContent = `Download ${id.replace('c','')}px`;
+  a.style.display = 'block';
+  a.style.margin = '10px';
+  document.body.appendChild(a);
+});
+</script>
+</body>
+</html>

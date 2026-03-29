@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TikTok Downloader — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-container">
+    <!-- Header -->
+    <header class="options-header">
+      <div class="header-brand">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>TikTok Downloader Settings</h1>
+          <p class="subtitle">Configure download behavior and preferences</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Disclaimer -->
+    <div class="disclaimer-section">
+      <div class="disclaimer-icon">⚠️</div>
+      <p>This extension only downloads videos you have explicit permission to save. It does not bypass any platform protections, DRM, login walls, or access controls. Only use this for your own content or publicly accessible, download-permitted content.</p>
+    </div>
+
+    <!-- Settings Form -->
+    <form id="settings-form">
+      <!-- Filename Template -->
+      <section class="settings-section">
+        <h2>Filename Template</h2>
+        <p class="section-desc">Customize how downloaded files are named. Available variables:</p>
+        <div class="template-vars">
+          <code>{username}</code>
+          <code>{date}</code>
+          <code>{time}</code>
+          <code>{index}</code>
+          <code>{videoId}</code>
+        </div>
+        <div class="form-group">
+          <label for="filename-template">Template</label>
+          <input type="text" id="filename-template" class="input" placeholder="{username}_{date}_{index}" />
+          <div class="form-hint">Preview: <span id="filename-preview" class="preview-text"></span></div>
+        </div>
+      </section>
+
+      <!-- Download Settings -->
+      <section class="settings-section">
+        <h2>Download Settings</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="max-concurrent">Max Concurrent Downloads</label>
+            <input type="number" id="max-concurrent" class="input" min="1" max="5" value="3" />
+            <div class="form-hint">Recommended: 2-3 to avoid rate limiting</div>
+          </div>
+          <div class="form-group">
+            <label for="retry-attempts">Retry Attempts</label>
+            <input type="number" id="retry-attempts" class="input" min="0" max="10" value="3" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="retry-delay">Retry Delay (ms)</label>
+            <input type="number" id="retry-delay" class="input" min="500" max="10000" step="500" value="2000" />
+          </div>
+          <div class="form-group">
+            <label for="inter-delay">Delay Between Downloads (ms)</label>
+            <input type="number" id="inter-delay" class="input" min="0" max="5000" step="100" value="500" />
+            <div class="form-hint">Rate limiting protection</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="batch-chunk">Batch Chunk Size</label>
+          <input type="number" id="batch-chunk" class="input" min="5" max="100" value="20" />
+          <div class="form-hint">Number of items processed per batch cycle</div>
+        </div>
+      </section>
+
+      <!-- Data Management -->
+      <section class="settings-section">
+        <h2>Data Management</h2>
+        <div class="form-row">
+          <button type="button" id="btn-clear-history" class="btn btn-secondary">
+            Clear Download History
+          </button>
+          <button type="button" id="btn-clear-failures" class="btn btn-secondary">
+            Clear Failure Log
+          </button>
+        </div>
+      </section>
+
+      <!-- Permissions Info -->
+      <section class="settings-section">
+        <h2>Permissions Explained</h2>
+        <div class="permissions-list">
+          <div class="permission-item">
+            <div class="permission-name">activeTab</div>
+            <div class="permission-desc">Accesses the current tab only when you click the extension icon. No background tab access.</div>
+          </div>
+          <div class="permission-item">
+            <div class="permission-name">downloads</div>
+            <div class="permission-desc">Required to save video files to your computer via Chrome's download manager.</div>
+          </div>
+          <div class="permission-item">
+            <div class="permission-name">storage</div>
+            <div class="permission-desc">Stores your settings and download history locally. Nothing is sent externally.</div>
+          </div>
+          <div class="permission-item">
+            <div class="permission-name">tiktok.com host access</div>
+            <div class="permission-desc">Runs the content script on TikTok pages to detect available videos. No data is collected.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Save Button -->
+      <div class="save-bar">
+        <span id="save-status" class="save-status"></span>
+        <button type="submit" class="btn btn-primary btn-save">
+          Save Settings
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script src="../lib/constants.js"></script>
+  <script src="../lib/utils.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
