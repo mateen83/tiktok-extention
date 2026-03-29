@@ -132,7 +132,15 @@
     <section id="section-videos" class="section" style="display: none;">
       <div class="section-header">
         <h2>Found Videos</h2>
-        <span class="badge" id="video-count">0</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span class="badge" id="video-count">0</span>
+          <button id="btn-clear-history" class="icon-btn" title="Clear History" style="width: 24px; height: 24px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
       </div>
       <div id="video-list" class="video-list"></div>
       <button id="btn-load-more" class="btn btn-ghost btn-full" style="display: none;">Load More</button>

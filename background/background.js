@@ -140,6 +140,13 @@ async function handleMessage(message, sender, sendResponse) {
         break;
       }
 
+      // ── Clear History ──────────────────────────────────────────────
+      case TTDL.MSG.CLEAR_HISTORY: {
+        await queue.clearHistory();
+        sendResponse({ success: true });
+        break;
+      }
+
       default:
         sendResponse({ success: false, error: `Unknown message type: ${message.type}` });
     }

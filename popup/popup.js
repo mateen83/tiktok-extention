@@ -37,6 +37,7 @@
     videoList: document.getElementById('video-list'),
     videoCount: document.getElementById('video-count'),
     btnLoadMore: document.getElementById('btn-load-more'),
+    btnClearHistory: document.getElementById('btn-clear-history'),
   };
 
   // ─── State ───────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@
       chrome.runtime.openOptionsPage();
     });
     els.btnLoadMore.addEventListener('click', loadMoreItems);
+    els.btnClearHistory.addEventListener('click', handleClearHistory);
   }
 
   // ─── Status Polling ──────────────────────────────────────────────────
@@ -340,6 +342,16 @@
       showPopupToast('Failure log exported!', 'success');
     } catch (err) {
       showPopupToast('Failed to export log.', 'error');
+    }
+  }
+
+  async function handleClearHistory() {
+    if (confirm('Clear all finished items from this list? (Does not delete actual files)')) {
+      const response = await sendMessage({ type: TTDL.MSG.CLEAR_HISTORY });
+      if (response && response.success) {
+        showPopupToast('History cleared!', 'success');
+      }
+      await refreshStatus();
     }
   }
 

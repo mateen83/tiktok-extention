@@ -43,6 +43,10 @@
   function isVideoPage() {
     return /tiktok\.com\/@[^/]+\/video\/\d+/.test(window.location.href);
   }
+  function isFeedPage() {
+    const p = window.location.pathname;
+    return p === '/' || p.startsWith('/foryou') || p.startsWith('/following') || p.startsWith('/explore');
+  }
 
   // ─── Video Card Extraction ───────────────────────────────────────────
 
@@ -80,6 +84,7 @@
     if (check.restricted) { showNotification(check.reason, 'warning'); return; }
     if (isVideoPage()) scanSingleVideoPage();
     else if (isProfilePage()) scanProfilePage();
+    else if (isFeedPage()) scanFeedPage();
   }
 
   function scanSingleVideoPage() {
@@ -141,6 +146,48 @@
       });
     }
     if (foundVideos.length > 0) injectBatchDownloadButton();
+  }
+
+  function scanFeedPage() {
+    const videos = document.querySelectorAll('video');
+    videos.forEach(videoEl => {
+      if (videoEl.hasAttribute(PROCESSED_ATTR)) return;
+
+      const container = videoEl.closest('[data-e2e="recommend-list-item-container"]') || 
+                        videoEl.closest('[class*="DivItemContainerFeed"]') || 
+                        videoEl.closest('[class*="VideoContainer"]') ||
+                        videoEl.parentElement;
+
+      if (!container) return;
+
+      const link = container.querySelector('a[href*="/video/"]');
+      let url = link ? link.href : null;
+
+      const videoId = TTDLUtils.extractVideoId(url || '');
+      if (!url || !videoId) return;
+
+      videoEl.setAttribute(PROCESSED_ATTR, 'true');
+
+      const vd = {
+        url,
+        videoUrl: null,
+        videoId,
+        username: TTDLUtils.extractUsername(url) || getPageUsername(),
+        hash: TTDLUtils.hashString(url)
+      };
+
+      if (!foundVideos.some(v => v.videoId === vd.videoId)) {
+        foundVideos.push(vd);
+      }
+
+      if (!container.querySelector(`.${BUTTON_CLASS}`)) {
+        const btn = createDownloadButton('⬇ HD', () => downloadSingle(vd));
+        container.style.position = container.style.position || 'relative';
+        // Position on the right side above the share/music icons
+        btn.style.cssText = 'position:absolute;bottom:100px;right:16px;z-index:9999;box-shadow: 0 2px 10px rgba(0,0,0,0.5);';
+        container.appendChild(btn);
+      }
+    });
   }
 
   // ─── UI Injection ────────────────────────────────────────────────────
