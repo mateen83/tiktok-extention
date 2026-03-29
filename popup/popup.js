@@ -24,6 +24,9 @@
 
     // Controls
     btnScan: document.getElementById('btn-scan'),
+    txtScan: document.getElementById('txt-scan'),
+    btnDownloadAll: document.getElementById('btn-download-all'),
+    txtDownloadAll: document.getElementById('txt-download-all'),
     btnPause: document.getElementById('btn-pause'),
     btnResume: document.getElementById('btn-resume'),
     btnCancel: document.getElementById('btn-cancel'),
@@ -57,6 +60,7 @@
 
   function attachEventListeners() {
     els.btnScan.addEventListener('click', handleScan);
+    els.btnDownloadAll.addEventListener('click', handleDownloadAll);
     els.btnPause.addEventListener('click', handlePause);
     els.btnResume.addEventListener('click', handleResume);
     els.btnCancel.addEventListener('click', handleCancel);
@@ -246,12 +250,25 @@
 
   // ─── Event Handlers ──────────────────────────────────────────────────
 
+  let scannedVideos = [];
+
+  function updateScanControls() {
+    if (scannedVideos.length > 0) {
+      els.btnDownloadAll.style.display = 'inline-flex';
+      els.txtDownloadAll.textContent = `Download All (${scannedVideos.length})`;
+      els.txtScan.textContent = 'Rescan';
+    } else {
+      els.btnDownloadAll.style.display = 'none';
+      els.txtScan.textContent = 'Scan Page';
+    }
+  }
+
   async function handleScan() {
     els.btnScan.disabled = true;
-    els.btnScan.textContent = 'Scanning...';
+    const oldText = els.txtScan.textContent;
+    els.txtScan.textContent = 'Scanning...';
 
     try {
-      // Get the active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
       if (!tab || !tab.url || !tab.url.includes('tiktok.com')) {
@@ -259,23 +276,12 @@
         return;
       }
 
-      // Send scan message to content script
       const response = await chrome.tabs.sendMessage(tab.id, { type: TTDL.MSG.GET_PAGE_VIDEOS });
 
       if (response && response.videos && response.videos.length > 0) {
-        showPopupToast(`Found ${response.videos.length} video(s)!`, 'success');
-
-        // Queue all found videos — background will resolve URLs during download
-        const result = await sendMessage({
-          type: TTDL.MSG.DOWNLOAD_BATCH,
-          videos: response.videos,
-        });
-
-        if (result && result.success) {
-          showPopupToast(`Queued ${result.added} video(s). ${result.duplicates} duplicates skipped.`, 'success');
-        } else {
-          showPopupToast(result?.error || 'Failed to queue downloads.', 'error');
-        }
+        showPopupToast(`Found ${response.videos.length} video(s)! Click Download All to start.`, 'success');
+        scannedVideos = response.videos;
+        updateScanControls();
       } else {
         showPopupToast('No downloadable videos found on this page.', 'info');
       }
@@ -284,13 +290,32 @@
       showPopupToast('Could not scan this page. Make sure you\'re on a TikTok page.', 'error');
     } finally {
       els.btnScan.disabled = false;
-      els.btnScan.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        Scan Page
-      `;
+      if (els.txtScan.textContent === 'Scanning...') {
+         els.txtScan.textContent = oldText; // Restore if we didn't update controls
+      }
     }
+  }
+
+  async function handleDownloadAll() {
+    if (scannedVideos.length === 0) return;
+    els.btnDownloadAll.disabled = true;
+    els.txtDownloadAll.textContent = 'Queuing...';
+
+    const result = await sendMessage({
+      type: TTDL.MSG.DOWNLOAD_BATCH,
+      videos: scannedVideos,
+    });
+
+    if (result && result.success) {
+      showPopupToast(`Queued ${result.added} video(s). ${result.duplicates} dupes skipped.`, 'success');
+      scannedVideos = [];
+      updateScanControls();
+    } else {
+      showPopupToast(result?.error || 'Failed to queue downloads.', 'error');
+    }
+
+    els.btnDownloadAll.disabled = false;
+    await refreshStatus();
   }
 
   async function handlePause() {

@@ -210,27 +210,66 @@
   }
 
   function injectBatchDownloadButton() {
-    if (document.querySelector(`.${BATCH_BUTTON_CLASS}`)) {
-      document.querySelector(`.${BATCH_BUTTON_CLASS}`).textContent =
-        `⬇ Download All (${foundVideos.length})`;
+    let wrapper = document.querySelector('.ttdl-batch-wrapper');
+    if (wrapper) {
+      const btn = wrapper.querySelector(`.${BATCH_BUTTON_CLASS}`);
+      if (btn) btn.textContent = `⬇ Download All (${foundVideos.length})`;
       return;
     }
-    const grid = document.querySelector(
-      '[data-e2e="user-post-item-list"], [class*="DivVideoFeedV2"], [class*="video-feed"]'
-    );
-    if (!grid) return;
-    const wrapper = document.createElement('div');
+    
+    wrapper = document.createElement('div');
     wrapper.className = 'ttdl-batch-wrapper';
+    
     const disclaimer = document.createElement('div');
     disclaimer.className = 'ttdl-disclaimer';
     disclaimer.textContent = TTDL.DISCLAIMER;
+    
+    const controls = document.createElement('div');
+    controls.className = 'ttdl-batch-controls';
+    controls.style.display = 'flex';
+    controls.style.gap = '10px';
+    controls.style.marginTop = '10px';
+
+    const btnScan = document.createElement('button');
+    btnScan.className = 'ttdl-btn ttdl-btn-scan';
+    btnScan.textContent = '🔄 Rescan Page';
+    btnScan.addEventListener('click', (e) => {
+        e.preventDefault();
+        scanPage();
+    });
+
     const btn = document.createElement('button');
     btn.className = `${BATCH_BUTTON_CLASS} ttdl-btn ttdl-btn-batch`;
     btn.textContent = `⬇ Download All (${foundVideos.length})`;
-    btn.addEventListener('click', () => downloadBatch(foundVideos));
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        downloadBatch(foundVideos);
+    });
+    
+    controls.appendChild(btnScan);
+    controls.appendChild(btn);
+
     wrapper.appendChild(disclaimer);
-    wrapper.appendChild(btn);
-    grid.parentElement.insertBefore(wrapper, grid);
+    wrapper.appendChild(controls);
+
+    const grid = document.querySelector(
+      '[data-e2e="user-post-item-list"], [class*="DivVideoFeedV2"], [class*="video-feed"]'
+    );
+
+    if (grid && grid.parentElement) {
+      grid.parentElement.insertBefore(wrapper, grid);
+      wrapper.style.position = 'sticky';
+      wrapper.style.top = '70px';
+      wrapper.style.zIndex = '99999';
+    } else {
+      document.body.appendChild(wrapper);
+      wrapper.style.position = 'fixed';
+      wrapper.style.top = '70px';
+      wrapper.style.right = '20px';
+      wrapper.style.zIndex = '999999';
+      wrapper.style.maxWidth = '350px';
+      wrapper.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+    }
   }
 
   function createDownloadButton(text, onClick, small = false) {
