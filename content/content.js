@@ -6,7 +6,6 @@
 (function () {
   'use strict';
 
-  // Prevent double injection
   if (window.__ttdl_injected) return;
   window.__ttdl_injected = true;
 
@@ -19,183 +18,243 @@
   let observer = null;
   let foundVideos = [];
 
-  // ─── Access Check Helpers ────────────────────────────────────────────
+  // ─── Hydration Data Extraction ────────────────────────────────────
 
   /**
-   * Check if the current page appears to have access restrictions.
-   * @returns {{restricted: boolean, reason: string}}
+   * Parse TikTok's embedded JSON data from script tags.
    */
-  function checkAccessRestrictions() {
-    const selectors = TTDL.SELECTORS;
+  function extractHydrationData() {
+    const ids = [
+      '__UNIVERSAL_DATA_FOR_REHYDRATION__',
+      'SIGI_STATE',
+      '__NEXT_DATA__',
+    ];
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el) {
+        try { return { id, data: JSON.parse(el.textContent) }; }
+        catch (_) { continue; }
+      }
+    }
+    return null;
+  }
 
-    // Check for login wall
-    const loginModal = document.querySelector(selectors.LOGIN_WALL);
+  /**
+   * Decode TikTok's encoded video URLs.
+   */
+  function decodeUrl(url) {
+    if (!url) return null;
+    url = url.replace(/\\u([\dA-Fa-f]{4})/g, (_, h) =>
+      String.fromCharCode(parseInt(h, 16))
+    );
+    url = url.replace(/&amp;/g, '&').replace(/\\\//g, '/');
+    return url;
+  }
+
+  /**
+   * Extract video URL from hydration data for a single video page.
+   */
+  function getVideoUrlFromHydration(videoId) {
+    const result = extractHydrationData();
+    if (!result) return null;
+    const { id, data } = result;
+
+    try {
+      if (id === '__UNIVERSAL_DATA_FOR_REHYDRATION__') {
+        const scope = data?.__DEFAULT_SCOPE__ || {};
+        const itemStruct = scope['webapp.video-detail']?.itemInfo?.itemStruct;
+        if (itemStruct?.video) {
+          const v = itemStruct.video;
+          return decodeUrl(v.downloadAddr || v.playAddr
+            || v.bitrateInfo?.[0]?.PlayAddr?.UrlList?.[0]);
+        }
+      }
+
+      if (id === 'SIGI_STATE') {
+        const item = data?.ItemModule?.[videoId];
+        if (item?.video) {
+          return decodeUrl(item.video.downloadAddr || item.video.playAddr);
+        }
+      }
+    } catch (_) { /* fallthrough */ }
+
+    return null;
+  }
+
+  /**
+   * Extract all video items from hydration data (profile pages).
+   */
+  function getProfileVideosFromHydration() {
+    const result = extractHydrationData();
+    if (!result) return [];
+    const { id, data } = result;
+    const videos = [];
+
+    try {
+      if (id === 'SIGI_STATE' && data?.ItemModule) {
+        for (const [vid, item] of Object.entries(data.ItemModule)) {
+          const author = typeof item.author === 'string'
+            ? item.author
+            : item.author?.uniqueId || 'unknown';
+          videos.push({
+            url: `https://www.tiktok.com/@${author}/video/${vid}`,
+            videoUrl: decodeUrl(item.video?.downloadAddr || item.video?.playAddr),
+            videoId: vid,
+            username: author,
+            hash: TTDLUtils.hashString(vid),
+          });
+        }
+      }
+
+      if (id === '__UNIVERSAL_DATA_FOR_REHYDRATION__') {
+        const scope = data?.__DEFAULT_SCOPE__ || {};
+        // Try to find video list in user post data
+        for (const [key, val] of Object.entries(scope)) {
+          const list = val?.videoList || val?.itemList || val?.list;
+          if (Array.isArray(list)) {
+            for (const item of list) {
+              if (!item?.video) continue;
+              const author = item.author?.uniqueId || getPageUsername();
+              const vid = item.id || item.video?.id;
+              if (!vid) continue;
+              videos.push({
+                url: `https://www.tiktok.com/@${author}/video/${vid}`,
+                videoUrl: decodeUrl(item.video.downloadAddr || item.video.playAddr),
+                videoId: vid,
+                username: author,
+                hash: TTDLUtils.hashString(vid),
+              });
+            }
+          }
+        }
+      }
+    } catch (_) { /* fallthrough */ }
+
+    return videos;
+  }
+
+  // ─── Access Check Helpers ────────────────────────────────────────────
+
+  function checkAccessRestrictions() {
+    const s = TTDL.SELECTORS;
+    const loginModal = document.querySelector(s.LOGIN_WALL);
     if (loginModal && loginModal.offsetParent !== null) {
       return { restricted: true, reason: 'Login required to access this content.' };
     }
-
-    // Check for private account indicator
-    const privateIndicator = document.querySelector(selectors.PRIVATE_INDICATOR);
+    const privateIndicator = document.querySelector(s.PRIVATE_INDICATOR);
     if (privateIndicator) {
       return { restricted: true, reason: 'This account is private.' };
     }
-
-    // Check for age gate
-    const ageGate = document.querySelector(selectors.AGE_GATE);
+    const ageGate = document.querySelector(s.AGE_GATE);
     if (ageGate && ageGate.offsetParent !== null) {
       return { restricted: true, reason: 'Age-restricted content cannot be downloaded.' };
     }
-
     return { restricted: false, reason: '' };
   }
 
-  /**
-   * Check if the page is a profile/user page.
-   * @returns {boolean}
-   */
   function isProfilePage() {
-    const url = window.location.href;
-    // Profile pages match /@username pattern without /video/ in URL
-    return /tiktok\.com\/@[^/]+\/?(\?.*)?$/.test(url);
+    return /tiktok\.com\/@[^/]+\/?(\?.*)?$/.test(window.location.href);
   }
 
-  /**
-   * Check if the page is a single video page.
-   * @returns {boolean}
-   */
   function isVideoPage() {
     return /tiktok\.com\/@[^/]+\/video\/\d+/.test(window.location.href);
   }
 
   // ─── Video Discovery ─────────────────────────────────────────────────
 
-  /**
-   * Extract the direct video source URL from a video element.
-   * @param {HTMLVideoElement} videoEl
-   * @returns {string|null}
-   */
   function getVideoSource(videoEl) {
-    // Try direct src
-    if (videoEl.src && videoEl.src.startsWith('http')) {
+    // Skip blob URLs — they're MSE streams, useless for downloading
+    if (videoEl.src && videoEl.src.startsWith('http') && !videoEl.src.startsWith('blob:')) {
       return videoEl.src;
     }
-
-    // Try source elements
     const sourceEl = videoEl.querySelector('source');
-    if (sourceEl && sourceEl.src && sourceEl.src.startsWith('http')) {
+    if (sourceEl?.src && sourceEl.src.startsWith('http') && !sourceEl.src.startsWith('blob:')) {
       return sourceEl.src;
     }
-
-    // Try currentSrc
-    if (videoEl.currentSrc && videoEl.currentSrc.startsWith('http')) {
+    if (videoEl.currentSrc && videoEl.currentSrc.startsWith('http') && !videoEl.currentSrc.startsWith('blob:')) {
       return videoEl.currentSrc;
     }
-
     return null;
   }
 
-  /**
-   * Extract video metadata from a video card element.
-   * @param {Element} card
-   * @returns {object|null}
-   */
   function extractVideoFromCard(card) {
     const link = card.querySelector('a[href*="/video/"]') || card.closest('a[href*="/video/"]');
     if (!link) return null;
-
     const href = link.href;
     const videoId = TTDLUtils.extractVideoId(href);
     const username = TTDLUtils.extractUsername(href) || getPageUsername();
-
     if (!videoId) return null;
-
     return {
       url: href,
-      videoUrl: null, // Will be resolved when downloading
+      videoUrl: null, // Will be resolved by background
       videoId,
       username,
       hash: TTDLUtils.hashString(href),
     };
   }
 
-  /**
-   * Get the username from the current page.
-   * @returns {string}
-   */
   function getPageUsername() {
-    // Try multiple selectors
-    const selectors = [
-      '[data-e2e="user-title"]',
-      '[data-e2e="user-subtitle"]',
-      'h1[data-e2e="user-title"]',
-      'h2[data-e2e="user-subtitle"]',
-    ];
-
-    for (const selector of selectors) {
-      const el = document.querySelector(selector);
+    for (const sel of ['[data-e2e="user-title"]', '[data-e2e="user-subtitle"]', 'h1[data-e2e="user-title"]']) {
+      const el = document.querySelector(sel);
       if (el) {
         const text = el.textContent.trim().replace('@', '');
         if (text) return text;
       }
     }
-
-    // Fallback to URL
     return TTDLUtils.extractUsername(window.location.href) || 'unknown';
   }
 
   // ─── DOM Scanning ────────────────────────────────────────────────────
 
-  /**
-   * Scan the page for video elements and cards.
-   * Uses requestAnimationFrame to avoid blocking.
-   */
   function scanPage() {
     const accessCheck = checkAccessRestrictions();
     if (accessCheck.restricted) {
-      console.log(`[TTDL] Access restricted: ${accessCheck.reason}`);
       showNotification(accessCheck.reason, 'warning');
       return;
     }
-
-    if (isVideoPage()) {
-      scanSingleVideoPage();
-    } else if (isProfilePage()) {
-      scanProfilePage();
-    }
+    if (isVideoPage()) scanSingleVideoPage();
+    else if (isProfilePage()) scanProfilePage();
   }
 
-  /**
-   * Scan a single video page.
-   */
   function scanSingleVideoPage() {
-    const videoEl = document.querySelector('video');
-    if (!videoEl || videoEl.hasAttribute(PROCESSED_ATTR)) return;
-
-    const videoSource = getVideoSource(videoEl);
     const url = window.location.href;
     const videoId = TTDLUtils.extractVideoId(url);
     const username = getPageUsername();
 
-    if (videoSource && videoId) {
+    // Try hydration data first (most reliable)
+    let videoSource = getVideoUrlFromHydration(videoId);
+
+    // Fallback to DOM <video> element
+    if (!videoSource) {
+      const videoEl = document.querySelector('video');
+      if (videoEl) videoSource = getVideoSource(videoEl);
+    }
+
+    const videoData = {
+      url,
+      videoUrl: videoSource || null, // null is OK — background will resolve
+      videoId: videoId || 'unknown',
+      username,
+      hash: TTDLUtils.hashString(url),
+    };
+
+    foundVideos = [videoData];
+
+    // Inject button on the video element
+    const videoEl = document.querySelector('video');
+    if (videoEl && !videoEl.hasAttribute(PROCESSED_ATTR)) {
       videoEl.setAttribute(PROCESSED_ATTR, 'true');
-
-      const videoData = {
-        url,
-        videoUrl: videoSource,
-        videoId,
-        username,
-        hash: TTDLUtils.hashString(url),
-      };
-
-      foundVideos = [videoData];
       injectSingleDownloadButton(videoEl, videoData);
     }
   }
 
-  /**
-   * Scan a profile page for video cards.
-   */
   function scanProfilePage() {
+    // First, try to get videos from hydration data
+    const hydrationVideos = getProfileVideosFromHydration();
+    const hydrationMap = new Map();
+    hydrationVideos.forEach(v => hydrationMap.set(v.videoId, v));
+
+    // Then scan DOM for video cards (catches dynamically loaded ones too)
     const cards = document.querySelectorAll(TTDL.SELECTORS.VIDEO_CARD);
     const newVideos = [];
 
@@ -204,15 +263,39 @@
       card.setAttribute(PROCESSED_ATTR, 'true');
 
       const videoData = extractVideoFromCard(card);
-      if (videoData) {
-        newVideos.push(videoData);
-        injectCardDownloadButton(card, videoData);
+      if (!videoData) return;
+
+      // Merge with hydration data if available
+      const hydrationMatch = hydrationMap.get(videoData.videoId);
+      if (hydrationMatch?.videoUrl) {
+        videoData.videoUrl = hydrationMatch.videoUrl;
       }
+
+      newVideos.push(videoData);
+      injectCardDownloadButton(card, videoData);
+    });
+
+    // Also scan for video links not inside cards
+    const allLinks = document.querySelectorAll('a[href*="/video/"]');
+    allLinks.forEach(link => {
+      if (link.hasAttribute(PROCESSED_ATTR)) return;
+      const videoId = TTDLUtils.extractVideoId(link.href);
+      if (!videoId) return;
+      // Check if already found
+      if (foundVideos.some(v => v.videoId === videoId) || newVideos.some(v => v.videoId === videoId)) return;
+      link.setAttribute(PROCESSED_ATTR, 'true');
+      const hydrationMatch = hydrationMap.get(videoId);
+      newVideos.push({
+        url: link.href,
+        videoUrl: hydrationMatch?.videoUrl || null,
+        videoId,
+        username: TTDLUtils.extractUsername(link.href) || getPageUsername(),
+        hash: TTDLUtils.hashString(link.href),
+      });
     });
 
     if (newVideos.length > 0) {
       foundVideos = [...foundVideos, ...newVideos];
-      // Deduplicate by hash
       const seen = new Set();
       foundVideos = foundVideos.filter(v => {
         if (seen.has(v.hash)) return false;
@@ -221,71 +304,39 @@
       });
     }
 
-    // Inject batch download button if on profile and videos found
-    if (foundVideos.length > 0) {
-      injectBatchDownloadButton();
-    }
+    if (foundVideos.length > 0) injectBatchDownloadButton();
   }
 
   // ─── UI Injection ────────────────────────────────────────────────────
 
-  /**
-   * Inject a download button next to a single video player.
-   */
   function injectSingleDownloadButton(videoEl, videoData) {
-    // Find a suitable container
     const container = videoEl.closest('[class*="DivVideoContainer"], [class*="video-card"], div') || videoEl.parentElement;
     if (!container || container.querySelector(`.${BUTTON_CLASS}`)) return;
 
-    const btn = createDownloadButton('⬇ Download Video', () => {
-      downloadSingle(videoData);
-    });
-
-    // Position relative to video container
+    const btn = createDownloadButton('⬇ Download Video', () => downloadSingle(videoData));
     container.style.position = container.style.position || 'relative';
-    btn.style.position = 'absolute';
-    btn.style.bottom = '16px';
-    btn.style.right = '16px';
-    btn.style.zIndex = '9999';
-
+    btn.style.cssText = 'position:absolute;bottom:16px;right:16px;z-index:9999';
     container.appendChild(btn);
   }
 
-  /**
-   * Inject a small download button on a video card in profile grid.
-   */
   function injectCardDownloadButton(card, videoData) {
     if (card.querySelector(`.${BUTTON_CLASS}`)) return;
-
-    const btn = createDownloadButton('⬇', () => {
-      downloadSingle(videoData);
-    }, true);
-
+    const btn = createDownloadButton('⬇', () => downloadSingle(videoData), true);
     card.style.position = card.style.position || 'relative';
-    btn.style.position = 'absolute';
-    btn.style.top = '8px';
-    btn.style.right = '8px';
-    btn.style.zIndex = '9999';
-
+    btn.style.cssText = 'position:absolute;top:8px;right:8px;z-index:9999';
     card.appendChild(btn);
   }
 
-  /**
-   * Inject a batch download button at the top of the profile video grid.
-   */
   function injectBatchDownloadButton() {
     if (document.querySelector(`.${BATCH_BUTTON_CLASS}`)) {
-      // Update count
-      const existing = document.querySelector(`.${BATCH_BUTTON_CLASS}`);
-      existing.textContent = `⬇ Download All Permitted Videos (${foundVideos.length})`;
+      document.querySelector(`.${BATCH_BUTTON_CLASS}`).textContent =
+        `⬇ Download All Permitted Videos (${foundVideos.length})`;
       return;
     }
 
-    // Find the video grid container
     const grid = document.querySelector(
       '[data-e2e="user-post-item-list"], [class*="DivVideoFeedV2"], [class*="video-feed"]'
     );
-
     if (!grid) return;
 
     const wrapper = document.createElement('div');
@@ -298,45 +349,29 @@
     const btn = document.createElement('button');
     btn.className = `${BATCH_BUTTON_CLASS} ttdl-btn ttdl-btn-batch`;
     btn.textContent = `⬇ Download All Permitted Videos (${foundVideos.length})`;
-    btn.addEventListener('click', () => {
-      downloadBatch(foundVideos);
-    });
+    btn.addEventListener('click', () => downloadBatch(foundVideos));
 
     wrapper.appendChild(disclaimer);
     wrapper.appendChild(btn);
-
     grid.parentElement.insertBefore(wrapper, grid);
   }
 
-  /**
-   * Create a styled download button.
-   */
   function createDownloadButton(text, onClick, small = false) {
     const btn = document.createElement('button');
     btn.className = `${BUTTON_CLASS} ttdl-btn ${small ? 'ttdl-btn-small' : ''}`;
     btn.textContent = text;
     btn.title = 'Download this video (only if you have permission)';
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onClick();
-    });
+    btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); onClick(); });
     return btn;
   }
 
-  /**
-   * Show a notification toast on the page.
-   */
   function showNotification(message, type = 'info') {
     const existing = document.querySelector('.ttdl-notification');
     if (existing) existing.remove();
-
     const toast = document.createElement('div');
     toast.className = `ttdl-notification ttdl-notification-${type}`;
     toast.textContent = message;
     document.body.appendChild(toast);
-
-    // Auto-remove after 5 seconds
     setTimeout(() => {
       toast.classList.add('ttdl-notification-hide');
       setTimeout(() => toast.remove(), 300);
@@ -345,61 +380,35 @@
 
   // ─── Download Actions ────────────────────────────────────────────────
 
-  /**
-   * Download a single video.
-   */
   function downloadSingle(videoData) {
     showNotification('Starting download...', 'info');
-
-    chrome.runtime.sendMessage({
-      type: TTDL.MSG.DOWNLOAD_VIDEO,
-      video: videoData,
-    }, (response) => {
+    chrome.runtime.sendMessage({ type: TTDL.MSG.DOWNLOAD_VIDEO, video: videoData }, (response) => {
       if (chrome.runtime.lastError) {
         showNotification('Failed to start download. Please try again.', 'error');
         return;
       }
-      if (response && response.success) {
-        showNotification('Download started!', 'success');
-      } else {
-        showNotification(response?.error || 'Download failed.', 'error');
-      }
+      if (response?.success) showNotification('Download queued! Check popup for progress.', 'success');
+      else showNotification(response?.error || 'Download failed.', 'error');
     });
   }
 
-  /**
-   * Download a batch of videos.
-   */
   function downloadBatch(videos) {
-    if (videos.length === 0) {
-      showNotification('No downloadable videos found.', 'warning');
-      return;
-    }
-
-    const confirmation = confirm(
-      `Download ${videos.length} videos?\n\n` +
-      'Note: Only videos you have permission to download will be saved. ' +
-      'Videos behind login walls or from private accounts will be skipped.'
+    if (videos.length === 0) { showNotification('No downloadable videos found.', 'warning'); return; }
+    const ok = confirm(
+      `Download ${videos.length} videos?\n\nNote: Only videos you have permission to download will be saved.`
     );
-
-    if (!confirmation) return;
+    if (!ok) return;
 
     showNotification(`Queuing ${videos.length} videos for download...`, 'info');
-
-    chrome.runtime.sendMessage({
-      type: TTDL.MSG.DOWNLOAD_BATCH,
-      videos: videos,
-    }, (response) => {
+    chrome.runtime.sendMessage({ type: TTDL.MSG.DOWNLOAD_BATCH, videos }, (response) => {
       if (chrome.runtime.lastError) {
-        showNotification('Failed to queue downloads. Please try again.', 'error');
+        showNotification('Failed to queue downloads.', 'error');
         return;
       }
-      if (response && response.success) {
+      if (response?.success) {
         const msg = `Queued ${response.added} videos. ${response.duplicates > 0 ? `${response.duplicates} duplicates skipped.` : ''}`;
         showNotification(msg, 'success');
-      } else {
-        showNotification(response?.error || 'Failed to queue downloads.', 'error');
-      }
+      } else showNotification(response?.error || 'Failed to queue downloads.', 'error');
     });
   }
 
@@ -407,12 +416,10 @@
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === TTDL.MSG.GET_PAGE_VIDEOS) {
-      // Re-scan and return found videos
       scanPage();
       sendResponse({ videos: foundVideos });
       return true;
     }
-
     if (message.type === TTDL.MSG.SCAN_PAGE) {
       scanPage();
       sendResponse({ count: foundVideos.length });
@@ -420,86 +427,54 @@
     }
   });
 
-  // ─── MutationObserver for Dynamic Content ────────────────────────────
+  // ─── MutationObserver ────────────────────────────────────────────────
 
   function setupObserver() {
     if (observer) observer.disconnect();
-
     observer = new MutationObserver((mutations) => {
-      let hasNewContent = false;
-
-      for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          for (const node of mutation.addedNodes) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              // Check if new node contains video elements or video cards
-              if (
-                node.matches?.('video') ||
-                node.querySelector?.('video') ||
-                node.matches?.(TTDL.SELECTORS.VIDEO_CARD) ||
-                node.querySelector?.(TTDL.SELECTORS.VIDEO_CARD)
-              ) {
-                hasNewContent = true;
-                break;
-              }
-            }
+      let hasNew = false;
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+          if (node.matches?.('video') || node.querySelector?.('video') ||
+              node.matches?.(TTDL.SELECTORS.VIDEO_CARD) || node.querySelector?.(TTDL.SELECTORS.VIDEO_CARD) ||
+              node.querySelector?.('a[href*="/video/"]')) {
+            hasNew = true; break;
           }
         }
-        if (hasNewContent) break;
+        if (hasNew) break;
       }
-
-      if (hasNewContent) {
-        // Debounce rescanning
+      if (hasNew) {
         clearTimeout(scanTimer);
-        scanTimer = setTimeout(() => {
-          requestAnimationFrame(scanPage);
-        }, SCAN_DEBOUNCE_MS);
+        scanTimer = setTimeout(() => requestAnimationFrame(scanPage), SCAN_DEBOUNCE_MS);
       }
     });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  // ─── URL Change Detection (SPA Navigation) ──────────────────────────
+  // ─── SPA Navigation Detection ────────────────────────────────────────
 
   let lastUrl = window.location.href;
-
-  function detectUrlChange() {
-    const currentUrl = window.location.href;
-    if (currentUrl !== lastUrl) {
-      lastUrl = currentUrl;
+  setInterval(() => {
+    if (window.location.href !== lastUrl) {
+      lastUrl = window.location.href;
       foundVideos = [];
-      // Remove old injected elements
-      document.querySelectorAll(`.${BUTTON_CLASS}, .${BATCH_BUTTON_CLASS}, .ttdl-batch-wrapper`).forEach(el => el.remove());
-      // Reset processed attributes
-      document.querySelectorAll(`[${PROCESSED_ATTR}]`).forEach(el => el.removeAttribute(PROCESSED_ATTR));
-      // Re-scan after a short delay for DOM to update
+      document.querySelectorAll(`.${BUTTON_CLASS}, .${BATCH_BUTTON_CLASS}, .ttdl-batch-wrapper`)
+        .forEach(el => el.remove());
+      document.querySelectorAll(`[${PROCESSED_ATTR}]`)
+        .forEach(el => el.removeAttribute(PROCESSED_ATTR));
       setTimeout(() => requestAnimationFrame(scanPage), 1500);
     }
-  }
-
-  // Poll for URL changes (SPA doesn't trigger full page loads)
-  setInterval(detectUrlChange, 1000);
+  }, 1000);
 
   // ─── Initialize ──────────────────────────────────────────────────────
 
   function init() {
-    console.log('[TTDL] TikTok Video Downloader content script loaded');
-    // Initial scan with delay for page to fully render
-    setTimeout(() => {
-      requestAnimationFrame(scanPage);
-    }, 2000);
-
+    console.log('[TTDL] Content script loaded');
+    setTimeout(() => requestAnimationFrame(scanPage), 2000);
     setupObserver();
   }
 
-  // Start when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();

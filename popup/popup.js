@@ -263,19 +263,16 @@
       if (response && response.videos && response.videos.length > 0) {
         showPopupToast(`Found ${response.videos.length} video(s)!`, 'success');
 
-        // Auto-queue if videos have direct URLs
-        const downloadable = response.videos.filter(v => v.videoUrl);
-        if (downloadable.length > 0) {
-          const result = await sendMessage({
-            type: TTDL.MSG.DOWNLOAD_BATCH,
-            videos: downloadable,
-          });
+        // Queue all found videos — background will resolve URLs during download
+        const result = await sendMessage({
+          type: TTDL.MSG.DOWNLOAD_BATCH,
+          videos: response.videos,
+        });
 
-          if (result && result.success) {
-            showPopupToast(`Queued ${result.added} video(s). ${result.duplicates} duplicates skipped.`, 'success');
-          }
+        if (result && result.success) {
+          showPopupToast(`Queued ${result.added} video(s). ${result.duplicates} duplicates skipped.`, 'success');
         } else {
-          showPopupToast('Videos found but no direct download URLs available. Try the on-page buttons.', 'info');
+          showPopupToast(result?.error || 'Failed to queue downloads.', 'error');
         }
       } else {
         showPopupToast('No downloadable videos found on this page.', 'info');

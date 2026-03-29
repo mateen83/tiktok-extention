@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TikTok Video Downloader",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Download permitted TikTok videos you have rights to save. Respects platform rules and user privacy.",
   "permissions": [
     "activeTab",

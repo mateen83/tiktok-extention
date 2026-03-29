@@ -35,15 +35,7 @@ async function handleMessage(message, sender, sendResponse) {
           return;
         }
 
-        // If we don't have a direct video URL, try to get it from the page
-        if (!video.videoUrl) {
-          sendResponse({
-            success: false,
-            error: 'Could not find a direct video URL. The video may be protected.',
-          });
-          return;
-        }
-
+        // Queue the video — URL will be resolved during download if missing
         const result = await queue.addItems([video]);
         await queue.start();
 
