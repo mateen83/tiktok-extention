@@ -41,7 +41,7 @@
     return /tiktok\.com\/@[^/]+\/?(\?.*)?$/.test(window.location.href);
   }
   function isVideoPage() {
-    return /tiktok\.com\/@[^/]+\/video\/\d+/.test(window.location.href);
+    return /tiktok\.com\/@[^/]+\/(video|photo)\/\d+/.test(window.location.href);
   }
   function isFeedPage() {
     const p = window.location.pathname;
