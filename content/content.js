@@ -189,8 +189,11 @@
   }
 
   function injectBatchDownloadButton() {
+    if (!isProfilePage()) return; // ONLY show on Profile pages
+
     let wrapper = document.querySelector('.ttdl-batch-wrapper');
     if (wrapper) {
+      if (wrapper.dataset.closed === 'true') return;
       const btn = wrapper.querySelector(`.${BATCH_BUTTON_CLASS}`);
       if (btn) btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:0px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download All (${foundVideos.length})`;
       return;
@@ -199,9 +202,35 @@
     wrapper = document.createElement('div');
     wrapper.className = 'ttdl-batch-wrapper';
     
+    const headerRow = document.createElement('div');
+    headerRow.style.display = 'flex';
+    headerRow.style.justifyContent = 'space-between';
+    headerRow.style.width = '100%';
+    headerRow.style.alignItems = 'flex-start';
+
     const disclaimer = document.createElement('div');
     disclaimer.className = 'ttdl-disclaimer';
     disclaimer.textContent = TTDL.DISCLAIMER;
+    disclaimer.style.flex = '1';
+    disclaimer.style.marginRight = '10px';
+    
+    const closeBtn = document.createElement('div');
+    closeBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.padding = '0px';
+    closeBtn.style.color = 'rgba(255, 255, 255, 0.7)';
+    closeBtn.style.transition = 'color 0.2s';
+    closeBtn.setAttribute('title', 'Close');
+    closeBtn.addEventListener('mouseenter', () => closeBtn.style.color = '#fff');
+    closeBtn.addEventListener('mouseleave', () => closeBtn.style.color = 'rgba(255, 255, 255, 0.7)');
+    closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        wrapper.style.display = 'none';
+        wrapper.dataset.closed = 'true';
+    });
+
+    headerRow.appendChild(disclaimer);
+    headerRow.appendChild(closeBtn);
     
     const controls = document.createElement('div');
     controls.className = 'ttdl-batch-controls';
@@ -229,7 +258,7 @@
     controls.appendChild(btnScan);
     controls.appendChild(btn);
 
-    wrapper.appendChild(disclaimer);
+    wrapper.appendChild(headerRow);
     wrapper.appendChild(controls);
 
     document.body.appendChild(wrapper);
