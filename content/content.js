@@ -82,91 +82,56 @@
   function scanPage() {
     const check = checkAccessRestrictions();
     if (check.restricted) { showNotification(check.reason, 'warning'); return; }
-    if (isVideoPage()) scanSingleVideoPage();
-    else if (isProfilePage()) scanProfilePage();
-    else if (isFeedPage()) scanFeedPage();
+    
+    scanAllVideos();
+    
+    if (foundVideos.length > 0) injectBatchDownloadButton();
   }
 
-  function scanSingleVideoPage() {
-    const url = window.location.href;
-    const videoId = TTDLUtils.extractVideoId(url);
-    const username = getPageUsername();
-
-    const videoData = {
-      url,
-      videoUrl: null, // Resolved via API
-      videoId: videoId || 'unknown',
-      username,
-      hash: TTDLUtils.hashString(url),
-    };
-    foundVideos = [videoData];
-
-    const videoEl = document.querySelector('video');
-    if (videoEl && !videoEl.hasAttribute(PROCESSED_ATTR)) {
-      videoEl.setAttribute(PROCESSED_ATTR, 'true');
-      injectSingleDownloadButton(videoEl, videoData);
-    }
-  }
-
-  function scanProfilePage() {
+  function scanAllVideos() {
+    let hasNew = false;
+    
+    // 1. Profile / Search Page Video Cards
     const cards = document.querySelectorAll(TTDL.SELECTORS.VIDEO_CARD);
-    const newVideos = [];
-
     cards.forEach(card => {
       if (card.hasAttribute(PROCESSED_ATTR)) return;
       card.setAttribute(PROCESSED_ATTR, 'true');
       const vd = extractVideoFromCard(card);
       if (!vd) return;
-      newVideos.push(vd);
+      
+      if (!foundVideos.some(v => v.videoId === vd.videoId)) {
+        foundVideos.push(vd);
+        hasNew = true;
+      }
       injectCardDownloadButton(card, vd);
     });
 
-    // Also scan links outside cards
-    document.querySelectorAll('a[href*="/video/"]').forEach(link => {
-      if (link.hasAttribute(PROCESSED_ATTR)) return;
-      const videoId = TTDLUtils.extractVideoId(link.href);
-      if (!videoId) return;
-      if (foundVideos.some(v => v.videoId === videoId) || newVideos.some(v => v.videoId === videoId)) return;
-      link.setAttribute(PROCESSED_ATTR, 'true');
-      newVideos.push({
-        url: link.href,
-        videoUrl: null,
-        videoId,
-        username: TTDLUtils.extractUsername(link.href) || getPageUsername(),
-        hash: TTDLUtils.hashString(link.href),
-      });
-    });
-
-    if (newVideos.length > 0) {
-      foundVideos = [...foundVideos, ...newVideos];
-      const seen = new Set();
-      foundVideos = foundVideos.filter(v => {
-        if (seen.has(v.hash)) return false;
-        seen.add(v.hash); return true;
-      });
-    }
-    if (foundVideos.length > 0) injectBatchDownloadButton();
-  }
-
-  function scanFeedPage() {
+    // 2. All <video> elements (Feed, Single Video, Explore)
     const videos = document.querySelectorAll('video');
     videos.forEach(videoEl => {
-      if (videoEl.hasAttribute(PROCESSED_ATTR)) return;
+      if (videoEl.hasAttribute('data-ttdl-video-processed')) return;
+      videoEl.setAttribute('data-ttdl-video-processed', 'true');
 
-      const container = videoEl.closest('[data-e2e="recommend-list-item-container"]') || 
-                        videoEl.closest('[class*="DivItemContainerFeed"]') || 
-                        videoEl.closest('[class*="VideoContainer"]') ||
-                        videoEl.parentElement;
+      let container = videoEl.closest('[data-e2e="recommend-list-item-container"]') || 
+                      videoEl.closest('[class*="DivItemContainerFeed"]') || 
+                      videoEl.closest('[class*="VideoContainer"]') ||
+                      videoEl.closest('[class*="swiper-slide"]') ||
+                      videoEl.parentElement;
 
       if (!container) return;
 
-      const link = container.querySelector('a[href*="/video/"]');
+      let link = container.querySelector('a[href*="/video/"]');
       let url = link ? link.href : null;
+
+      if (!url) {
+        const currentUrl = window.location.href;
+        if (TTDLUtils.extractVideoId(currentUrl)) {
+          url = currentUrl;
+        }
+      }
 
       const videoId = TTDLUtils.extractVideoId(url || '');
       if (!url || !videoId) return;
-
-      videoEl.setAttribute(PROCESSED_ATTR, 'true');
 
       const vd = {
         url,
@@ -178,16 +143,30 @@
 
       if (!foundVideos.some(v => v.videoId === vd.videoId)) {
         foundVideos.push(vd);
+        hasNew = true;
       }
 
-      if (!container.querySelector(`.${BUTTON_CLASS}`)) {
-        const btn = createDownloadButton('⬇ HD', () => downloadSingle(vd));
-        container.style.position = container.style.position || 'relative';
-        // Position on the right side above the share/music icons
-        btn.style.cssText = 'position:absolute;bottom:100px;right:16px;z-index:9999;box-shadow: 0 2px 10px rgba(0,0,0,0.5);';
-        container.appendChild(btn);
-      }
+      injectReelDownloadButton(container, vd);
     });
+  }
+
+  function injectReelDownloadButton(container, videoData) {
+     if (container.querySelector(`.${BUTTON_CLASS}`) || container.querySelector('.ttdl-reel-btn')) return;
+
+     const btn = createDownloadButton('⬇ HD', () => downloadSingle(videoData));
+     btn.classList.add('ttdl-reel-btn');
+
+     const actionBar = container.querySelector('[class*="ActionItemContainer"], [class*="DivActionItemContainer"], [data-e2e="video-share-tooltip"]');
+     
+     if (actionBar && actionBar.parentElement) {
+         actionBar.parentElement.appendChild(btn);
+         btn.style.cssText = 'margin-top: 16px; transform: scale(1.1); font-size: 14px; padding: 10px; border-radius: 50%; width: 44px; height: 44px; display: flex; justify-content: center; align-items: center; background: rgba(37,244,238,0.9); color: black; box-shadow: 0 4px 12px rgba(0,0,0,0.5); cursor: pointer; border: none;';
+         btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`;
+     } else {
+         container.style.position = container.style.position || 'relative';
+         btn.style.cssText = 'position: absolute; right: 20px; bottom: 120px; z-index: 2147483647; background: rgba(37,244,238,0.9); padding: 12px 16px; border-radius: 8px; font-weight: bold; color: black; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); border: none;';
+         container.appendChild(btn);
+     }
   }
 
   // ─── UI Injection ────────────────────────────────────────────────────
@@ -213,7 +192,7 @@
     let wrapper = document.querySelector('.ttdl-batch-wrapper');
     if (wrapper) {
       const btn = wrapper.querySelector(`.${BATCH_BUTTON_CLASS}`);
-      if (btn) btn.textContent = `⬇ Download All (${foundVideos.length})`;
+      if (btn) btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:0px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download All (${foundVideos.length})`;
       return;
     }
     
@@ -226,13 +205,12 @@
     
     const controls = document.createElement('div');
     controls.className = 'ttdl-batch-controls';
-    controls.style.display = 'flex';
-    controls.style.gap = '10px';
-    controls.style.marginTop = '10px';
 
     const btnScan = document.createElement('button');
     btnScan.className = 'ttdl-btn ttdl-btn-scan';
-    btnScan.textContent = '🔄 Rescan Page';
+    btnScan.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:0px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Rescan Page`;
+    btnScan.style.display = 'flex';
+    btnScan.style.alignItems = 'center';
     btnScan.addEventListener('click', (e) => {
         e.preventDefault();
         scanPage();
@@ -240,7 +218,9 @@
 
     const btn = document.createElement('button');
     btn.className = `${BATCH_BUTTON_CLASS} ttdl-btn ttdl-btn-batch`;
-    btn.textContent = `⬇ Download All (${foundVideos.length})`;
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:0px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download All (${foundVideos.length})`;
+    btn.style.display = 'flex';
+    btn.style.alignItems = 'center';
     btn.addEventListener('click', (e) => {
         e.preventDefault();
         downloadBatch(foundVideos);
@@ -252,30 +232,20 @@
     wrapper.appendChild(disclaimer);
     wrapper.appendChild(controls);
 
-    const grid = document.querySelector(
-      '[data-e2e="user-post-item-list"], [class*="DivVideoFeedV2"], [class*="video-feed"]'
-    );
-
-    if (grid && grid.parentElement) {
-      grid.parentElement.insertBefore(wrapper, grid);
-      wrapper.style.position = 'sticky';
-      wrapper.style.top = '70px';
-      wrapper.style.zIndex = '99999';
-    } else {
-      document.body.appendChild(wrapper);
-      wrapper.style.position = 'fixed';
-      wrapper.style.top = '70px';
-      wrapper.style.right = '20px';
-      wrapper.style.zIndex = '999999';
-      wrapper.style.maxWidth = '350px';
-      wrapper.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
-    }
+    document.body.appendChild(wrapper);
   }
 
-  function createDownloadButton(text, onClick, small = false) {
+  function createDownloadButton(htmlContent, onClick, small = false) {
     const btn = document.createElement('button');
     btn.className = `${BUTTON_CLASS} ttdl-btn ${small ? 'ttdl-btn-small' : ''}`;
-    btn.textContent = text;
+    
+    if (htmlContent.includes('⬇')) {
+        htmlContent = htmlContent.replace('⬇', `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:0px; vertical-align: middle;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`);
+    }
+    
+    btn.innerHTML = htmlContent;
+    btn.style.display = 'inline-flex';
+    btn.style.alignItems = 'center';
     btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); onClick(); });
     return btn;
   }
