@@ -21,6 +21,10 @@
   -webkit-backdrop-filter: blur(8px);
 }
 
+.ttdl-download-btn {
+  border: 1px solid #ff0000 !important;
+}
+
 .ttdl-btn:not(.ttdl-btn-small) {
   padding: 10px 18px;
   font-size: 13px;

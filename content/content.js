@@ -83,6 +83,8 @@
     const check = checkAccessRestrictions();
     if (check.restricted) { showNotification(check.reason, 'warning'); return; }
     
+    if (isVideoPage()) return;
+    
     scanAllVideos();
     
     if (foundVideos.length > 0) injectBatchDownloadButton();
@@ -208,11 +210,8 @@
     headerRow.style.width = '100%';
     headerRow.style.alignItems = 'flex-start';
 
-    const disclaimer = document.createElement('div');
-    disclaimer.className = 'ttdl-disclaimer';
-    disclaimer.textContent = TTDL.DISCLAIMER;
-    disclaimer.style.flex = '1';
-    disclaimer.style.marginRight = '10px';
+    const spacer = document.createElement('div');
+    spacer.style.flex = '1';
     
     const closeBtn = document.createElement('div');
     closeBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
@@ -229,7 +228,7 @@
         wrapper.dataset.closed = 'true';
     });
 
-    headerRow.appendChild(disclaimer);
+    headerRow.appendChild(spacer);
     headerRow.appendChild(closeBtn);
     
     const controls = document.createElement('div');
@@ -237,12 +236,30 @@
 
     const btnScan = document.createElement('button');
     btnScan.className = 'ttdl-btn ttdl-btn-scan';
-    btnScan.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:0px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Rescan Page`;
+    const originalScanHtml = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:0px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Rescan Page`;
+    btnScan.innerHTML = originalScanHtml;
     btnScan.style.display = 'flex';
     btnScan.style.alignItems = 'center';
     btnScan.addEventListener('click', (e) => {
         e.preventDefault();
-        scanPage();
+        if (btnScan.disabled) return;
+        btnScan.disabled = true;
+        btnScan.innerHTML = `<svg class="ttdl-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>Scanning...`;
+        btnScan.style.opacity = '0.7';
+        
+        if (!document.getElementById('ttdl-spin-style')) {
+            const style = document.createElement('style');
+            style.id = 'ttdl-spin-style';
+            style.textContent = `@keyframes ttdl-spin { 100% { transform: rotate(360deg); } } .ttdl-spin { animation: ttdl-spin 1s linear infinite; margin-right: 4px; }`;
+            document.head.appendChild(style);
+        }
+
+        setTimeout(() => {
+            scanPage();
+            btnScan.innerHTML = originalScanHtml;
+            btnScan.style.opacity = '1';
+            btnScan.disabled = false;
+        }, 3000);
     });
 
     const btn = document.createElement('button');
