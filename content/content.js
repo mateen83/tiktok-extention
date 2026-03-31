@@ -57,6 +57,15 @@
     const videoId = TTDLUtils.extractVideoId(href);
     const username = TTDLUtils.extractUsername(href) || getPageUsername();
     if (!videoId) return null;
+
+    // Fix: Only fetch videos belonging to the profile user when on a profile page
+    if (isProfilePage()) {
+      const pageUser = TTDLUtils.extractUsername(window.location.href);
+      if (pageUser && username.toLowerCase() !== pageUser.toLowerCase()) {
+        return null;
+      }
+    }
+
     return {
       url: href,
       videoUrl: null, // Resolved by background via API
@@ -141,11 +150,21 @@
       const videoId = TTDLUtils.extractVideoId(url || '');
       if (!url || !videoId) return;
 
+      const username = TTDLUtils.extractUsername(url) || getPageUsername();
+
+      // Fix: Only fetch videos belonging to the profile user when on a profile page
+      if (isProfilePage()) {
+        const pageUser = TTDLUtils.extractUsername(window.location.href);
+        if (pageUser && username.toLowerCase() !== pageUser.toLowerCase()) {
+          return;
+        }
+      }
+
       const vd = {
         url,
         videoUrl: null,
         videoId,
-        username: TTDLUtils.extractUsername(url) || getPageUsername(),
+        username,
         hash: TTDLUtils.hashString(url)
       };
 
