@@ -208,12 +208,14 @@
       btn.classList.add('ttdl-feed-reel-btn');
 
       if (overlayTop) {
-        btn.style.cssText = 'position:relative; z-index:2147483647; border: 1px solid #ff0000 !important;';
+        // Absolute position to perfectly center it, keeping 3-dot menu on the right
+        btn.style.cssText = 'position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:2147483647; border: 1px solid #ff0000 !important;';
+        overlayTop.style.position = overlayTop.style.position || 'relative';
         overlayTop.appendChild(btn);
       } else {
-        // Fallback: absolute position on the player container
+        // Fallback: absolute position on the player container (centered)
         pc.style.position = pc.style.position || 'relative';
-        btn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:2147483647; border: 1px solid #ff0000 !important;';
+        btn.style.cssText = 'position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:2147483647; border: 1px solid #ff0000 !important;';
         pc.appendChild(btn);
       }
     });
