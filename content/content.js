@@ -83,6 +83,9 @@
     const check = checkAccessRestrictions();
     if (check.restricted) { showNotification(check.reason, 'warning'); return; }
     
+    // Always scan For You feed reels first (URL changes to /video/ while scrolling)
+    scanForYouReels();
+    
     if (isVideoPage()) return;
     
     scanAllVideos();
@@ -149,6 +152,66 @@
       }
 
       injectReelDownloadButton(container, vd);
+    });
+  }
+
+  // ─── For You Feed Reel Download ───────────────────────────────────────
+
+  function scanForYouReels() {
+    // Target the For You feed video players by their actual container class
+    // DOM: <div class="...BasePlayerContainer...DivVideoPlayerContainer...">
+    const playerContainers = document.querySelectorAll('[class*="DivVideoPlayerContainer"]');
+    if (!playerContainers.length) return;
+
+    playerContainers.forEach(pc => {
+      if (pc.querySelector('.ttdl-feed-reel-btn')) return;
+
+      // Extract video ID from xgplayer wrapper: <div id="xgwrapper-0-7616212003052473630">
+      let videoId = null;
+      const xgWrapper = pc.querySelector('[id^="xgwrapper-"]');
+      if (xgWrapper) {
+        const match = xgWrapper.id.match(/xgwrapper-\d+-(\d+)/);
+        if (match) videoId = match[1];
+      }
+      // Fallback: try current URL
+      if (!videoId) videoId = TTDLUtils.extractVideoId(window.location.href);
+      if (!videoId) return;
+
+      // Find username from the creator link inside the overlay: <a href="/@emmabbear">
+      let username = 'unknown';
+      const creatorLink = pc.querySelector('a[href*="/@"]');
+      if (creatorLink) {
+        const m = creatorLink.getAttribute('href').match(/@([^/]+)/);
+        if (m) username = m[1];
+      }
+      if (username === 'unknown') {
+        username = TTDLUtils.extractUsername(window.location.href) || 'unknown';
+      }
+
+      const url = `https://www.tiktok.com/@${username}/video/${videoId}`;
+      const vd = {
+        url, videoUrl: null, videoId, username,
+        hash: TTDLUtils.hashString(url)
+      };
+
+      if (!foundVideos.some(v => v.videoId === vd.videoId)) {
+        foundVideos.push(vd);
+      }
+
+      // Inject download button into the overlay top (alongside volume & menu buttons)
+      const overlayTop = pc.querySelector('[class*="DivMediaCardOverlayTop"]');
+
+      const btn = createDownloadButton('⬇', () => downloadSingle(vd), true);
+      btn.classList.add('ttdl-feed-reel-btn');
+
+      if (overlayTop) {
+        overlayTop.appendChild(btn);
+      } else {
+        // Fallback: absolute position on the player container
+        pc.style.position = pc.style.position || 'relative';
+        btn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:9999; border: 1px solid #ff0000 !important;';
+        pc.appendChild(btn);
+      }
     });
   }
 
