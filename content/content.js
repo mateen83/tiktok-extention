@@ -86,6 +86,9 @@
     // Always scan For You feed reels first (URL changes to /video/ while scrolling)
     scanForYouReels();
     
+    // Scan browse/detail video view (expanded video player with search bar)
+    scanBrowseVideoView();
+    
     if (isVideoPage()) return;
     
     scanAllVideos();
@@ -211,6 +214,62 @@
         pc.style.position = pc.style.position || 'relative';
         btn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:9999; border: 1px solid #ff0000 !important;';
         pc.appendChild(btn);
+      }
+    });
+  }
+
+  // ─── Browse/Detail Video View Download ─────────────────────────────────
+
+  function scanBrowseVideoView() {
+    // Target the browse video detail view: <div class="...DivVideoContainer...">
+    // This has a search bar on top, close button, prev/next arrows
+    const videoContainers = document.querySelectorAll('[class*="DivVideoContainer"]');
+    if (!videoContainers.length) return;
+
+    videoContainers.forEach(vc => {
+      // Only target browse view (has search bar or close button)
+      const searchBar = vc.querySelector('[class*="DivSearchBarContainer"]');
+      const closeBtn = vc.querySelector('button[data-e2e="browse-close"]');
+      if (!searchBar && !closeBtn) return;
+
+      if (vc.querySelector('.ttdl-browse-dl-btn')) return;
+
+      // Extract video ID from the xgplayer wrapper: <div id="xgwrapper-2-7619755989801241857">
+      let videoId = null;
+      const xgWrappers = vc.querySelectorAll('[id^="xgwrapper-"]');
+      for (const xgw of xgWrappers) {
+        const match = xgw.id.match(/xgwrapper-\d+-(\d+)/);
+        if (match) { videoId = match[1]; break; }
+      }
+      if (!videoId) videoId = TTDLUtils.extractVideoId(window.location.href);
+      if (!videoId) return;
+
+      let username = TTDLUtils.extractUsername(window.location.href) || 'unknown';
+
+      const url = `https://www.tiktok.com/@${username}/video/${videoId}`;
+      const vd = {
+        url, videoUrl: null, videoId, username,
+        hash: TTDLUtils.hashString(url)
+      };
+
+      if (!foundVideos.some(v => v.videoId === vd.videoId)) {
+        foundVideos.push(vd);
+      }
+
+      // Inject download button into the search bar area
+      const btn = createDownloadButton('⬇', () => downloadSingle(vd), true);
+      btn.classList.add('ttdl-browse-dl-btn');
+
+      if (searchBar) {
+        // Place it inside the search bar container, to the right
+        btn.style.cssText = 'position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 9999; border: 1px solid #ff0000 !important; background: rgba(37, 244, 238, 0.85) !important; color: #000 !important; border-radius: 8px; padding: 6px 10px;';
+        searchBar.style.position = searchBar.style.position || 'relative';
+        searchBar.appendChild(btn);
+      } else {
+        // Fallback: top-right of the video container
+        vc.style.position = vc.style.position || 'relative';
+        btn.style.cssText = 'position:absolute;top:12px;right:50px;z-index:9999; border: 1px solid #ff0000 !important;';
+        vc.appendChild(btn);
       }
     });
   }
@@ -439,7 +498,7 @@
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
       foundVideos = [];
-      document.querySelectorAll(`.${BUTTON_CLASS}, .${BATCH_BUTTON_CLASS}, .ttdl-batch-wrapper`)
+      document.querySelectorAll(`.${BUTTON_CLASS}, .${BATCH_BUTTON_CLASS}, .ttdl-batch-wrapper, .ttdl-feed-reel-btn, .ttdl-browse-dl-btn`)
         .forEach(el => el.remove());
       document.querySelectorAll(`[${PROCESSED_ATTR}]`)
         .forEach(el => el.removeAttribute(PROCESSED_ATTR));
