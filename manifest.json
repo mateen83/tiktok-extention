@@ -10,16 +10,26 @@
   ],
   "host_permissions": [
     "*://*.tiktok.com/*",
-    "*://*.tikwm.com/*"
+    "*://*.tikwm.com/*",
+    "*://*.lovetik.com/*",
+    "*://*.tikmate.app/*"
   ],
   "background": {
     "service_worker": "background/background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.tiktok.com/*"],
-      "js": ["lib/constants.js", "lib/utils.js", "content/content.js"],
-      "css": ["styles/content.css"],
+      "matches": [
+        "*://*.tiktok.com/*"
+      ],
+      "js": [
+        "lib/constants.js",
+        "lib/utils.js",
+        "content/content.js"
+      ],
+      "css": [
+        "styles/content.css"
+      ],
       "run_at": "document_idle"
     }
   ],
